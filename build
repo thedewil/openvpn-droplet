@@ -1,0 +1,145 @@
+#!/bin/bash
+###############################################################################################################
+# author: milesgratz
+# website: serveradventures.com
+# purpose: script to automate OpenVPN configuration on a DigitalOcean Ubuntu/Debian droplet
+# links: https://www.digitalocean.com/community/tutorials/how-to-set-up-an-openvpn-server-on-ubuntu-14-04
+# links: https://www.digitalocean.com/community/tutorials/how-to-set-up-an-openvpn-server-on-debian-8
+# links: http://www.serveradventures.com/the-adventures/setting-up-your-own-cloud-vpn-server-in-under-30-minutes
+################################################################################################################
+
+# update and install openvpn easy-rsa ufw vnstat
+apt-get update && apt-get -y install openvpn easy-rsa ufw vnstat
+
+# extract default openvpn config files
+gunzip -c /usr/share/doc/openvpn/examples/sample-config-files/server.conf.gz > /etc/openvpn/server.conf
+
+# replace dh1024.pem with dh2048.pem in default openvpn config file
+sed -i -e 's/dh1024.pem/dh2048.pem/g' /etc/openvpn/server.conf
+
+# uncomment ;push "redirect-gateway def1 bypass-dhcp"
+sed -i -e 's/;push "redirect-gateway def1 bypass-dhcp"/push "redirect-gateway def1 bypass-dhcp"/g' /etc/openvpn/server.conf
+
+# uncomment ;push "dhcp-option DNS 208.67.222.222" 
+# uncomment ;push "dhcp-option DNS 208.67.220.220"
+sed -i -e 's/;push "dhcp-option DNS 208.67.222.222"/push "dhcp-option DNS 208.67.222.222"/g' /etc/openvpn/server.conf
+sed -i -e 's/;push "dhcp-option DNS 208.67.220.220"/push "dhcp-option DNS 208.67.220.220"/g' /etc/openvpn/server.conf
+
+# uncomment ;user nobody
+# uncomment ;group nogroup
+sed -i -e 's/;user nobody/user nobody/g' /etc/openvpn/server.conf
+sed -i -e 's/;group nogroup/group nogroup/g' /etc/openvpn/server.conf
+
+# enable packet forwarding during runtime
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
+# enable packet forwarding permanently
+sed -i -e 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/g' /etc/sysctl.conf
+
+# configure ufw with ssh and openvpn (1194/udp) 
+ufw allow ssh
+ufw allow 1194/udp
+
+# replace ufw policy DEFAULT_FORWARD_POLICY="DROP" to "ACCEPT"
+sed -i -e 's/DEFAULT_FORWARD_POLICY="DROP"/DEFAULT_FORWARD_POLICY="ACCEPT"/g' /etc/default/ufw
+
+# split ufw rules into two files
+head -n 9 /etc/ufw/before.rules > /etc/ufw/before.rules.topsplit
+tail -n +10 /etc/ufw/before.rules > /etc/ufw/before.rules.bottomsplit
+
+# add openvpn rules into ufw topsplit
+echo "" >> /etc/ufw/before.rules.topsplit
+echo "# START OPENVPN RULES" >> /etc/ufw/before.rules.topsplit
+echo "# NAT table rules" >> /etc/ufw/before.rules.topsplit
+echo "*nat" >> /etc/ufw/before.rules.topsplit
+echo ":POSTROUTING ACCEPT [0:0]" >> /etc/ufw/before.rules.topsplit
+echo "# Allow traffic from OpenVPN client to eth0" >> /etc/ufw/before.rules.topsplit
+echo "-A POSTROUTING -s 10.8.0.0/8 -o eth0 -j MASQUERADE" >> /etc/ufw/before.rules.topsplit
+echo "COMMIT" >> /etc/ufw/before.rules.topsplit
+echo "# END OPENVPN RULES" >> /etc/ufw/before.rules.topsplit
+echo "" >> /etc/ufw/before.rules.topsplit
+
+# combine ufw split files and delete split files 
+cat /etc/ufw/before.rules.topsplit /etc/ufw/before.rules.bottomsplit > /etc/ufw/before.rules
+rm /etc/ufw/before.rules.*split
+
+# enable ufw without confirmation
+ufw --force enable
+
+# copy easy-rsa generation scripts
+cp -r /usr/share/easy-rsa/ /etc/openvpn
+
+# make storage directory for keys
+mkdir /etc/openvpn/easy-rsa/keys
+
+# prepare for certificate generation based on $HOSTNAME
+sed -i -e 's/export KEY_EMAIL="me@myhost.mydomain"/export KEY_EMAIL="MYHOSTNAME@digitalocean.com"/g' /etc/openvpn/easy-rsa/vars
+sed -i -e "s/MYHOSTNAME/$(hostname)/g" /etc/openvpn/easy-rsa/vars
+sed -i -e "s/EasyRSA/$(hostname)/g" /etc/openvpn/easy-rsa/vars
+
+# generate Diffie-Hellman parameters
+openssl dhparam -out /etc/openvpn/dh2048.pem 2048
+
+# build CA and server certificates
+cd /etc/openvpn/easy-rsa
+. ./vars
+./clean-all
+./build-ca --batch ca
+./build-key-server --batch server
+
+# copy certificates to /etc/openvpn
+cp /etc/openvpn/easy-rsa/keys/{server.crt,server.key,ca.crt} /etc/openvpn
+
+# start openvpn service
+service openvpn start
+
+# build client certificates
+/etc/openvpn/easy-rsa/build-key --batch client1
+
+# create ovpn config file from template
+cp /usr/share/doc/openvpn/examples/sample-config-files/client.conf /etc/openvpn/easy-rsa/keys/client1.ovpn
+
+# define IP address of server
+ip=$(ip addr | grep 'state UP' -A2 | tail -n1 | awk '{print $2}' | cut -f1  -d'/')
+
+# replace my-server-1 in client1.ovpn to server IP address
+sed -i -e "s/my-server-1/${ip}/g" /etc/openvpn/easy-rsa/keys/client1.ovpn
+
+# uncomment 'user nobody' and 'group nogroup' from client1.ovpn
+sed -i -e 's/#user nobody/user nobody/g' /etc/openvpn/easy-rsa/keys/client1.ovpn
+sed -i -e 's/#group nogroup/group nogroup/g' /etc/openvpn/easy-rsa/keys/client1.ovpn
+
+# recomment ca.crt, client.crt, and client.key
+sed -i -e 's/ca ca.crt/#ca ca.crt/g' /etc/openvpn/easy-rsa/keys/client1.ovpn
+sed -i -e 's/cert client.crt/#cert client.crt/g' /etc/openvpn/easy-rsa/keys/client1.ovpn
+sed -i -e 's/key client.key/#key client.key/g' /etc/openvpn/easy-rsa/keys/client1.ovpn
+
+# paste actual certificates into client1.ovpn
+echo '<ca>' >> /etc/openvpn/easy-rsa/keys/client1.ovpn
+cat /etc/openvpn/ca.crt >> /etc/openvpn/easy-rsa/keys/client1.ovpn
+echo '</ca>' >> /etc/openvpn/easy-rsa/keys/client1.ovpn
+echo '<cert>' >> /etc/openvpn/easy-rsa/keys/client1.ovpn
+cat /etc/openvpn/easy-rsa/keys/client1.crt >> /etc/openvpn/easy-rsa/keys/client1.ovpn
+echo '</cert>' >> /etc/openvpn/easy-rsa/keys/client1.ovpn
+echo '<key>' >> /etc/openvpn/easy-rsa/keys/client1.ovpn
+cat /etc/openvpn/easy-rsa/keys/client1.key >> /etc/openvpn/easy-rsa/keys/client1.ovpn
+echo '</key>' >> /etc/openvpn/easy-rsa/keys/client1.ovpn
+
+# copy client1.ovpn to /root
+cp /etc/openvpn/easy-rsa/keys/client1.ovpn /root/client1.ovpn
+
+# script is finished
+echo '========================================================================'
+echo 'Completed.' 		
+echo   
+echo 'Your client configuration file is in /etc/openvpn/easy-rsa/keys'
+echo   'It is called "client1.ovpn"'
+echo
+echo 'Download FileZilla, SCP, or comparable SFTP software to retrieve file'
+echo   	 	
+echo '         -------------------------------------------'
+echo '      Rebooting in 1 minute to complete configuration...'
+echo '         -------------------------------------------'
+echo 
+echo '========================================================================'
+shutdown -r +1
