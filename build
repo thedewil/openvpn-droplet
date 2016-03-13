@@ -73,8 +73,8 @@ cp -r /usr/share/easy-rsa/ /etc/openvpn
 mkdir /etc/openvpn/easy-rsa/keys
 
 # prepare for certificate generation based on $HOSTNAME
-sed -i -e 's/export KEY_EMAIL="me@myhost.mydomain"/export KEY_EMAIL="MYHOSTNAME@digitalocean.com"/g' /etc/openvpn/easy-rsa/vars
-sed -i -e "s/MYHOSTNAME/$(hostname)/g" /etc/openvpn/easy-rsa/vars
+sed -i -e "s|export\ KEY\_EMAIL\=\"me\@myhost\.mydomain\"|export\ KEY\_EMAIL\=\"$(hostname)\@digitalocean.com\"|g" /etc/openvpn/easy-rsa/vars
+sed -i -e "s/MyOrganizationalUnit/$(hostname)/g" /etc/openvpn/easy-rsa/vars
 sed -i -e "s/EasyRSA/$(hostname)/g" /etc/openvpn/easy-rsa/vars
 
 # generate Diffie-Hellman parameters
@@ -94,7 +94,8 @@ cp /etc/openvpn/easy-rsa/keys/{server.crt,server.key,ca.crt} /etc/openvpn
 service openvpn start
 
 # build client certificates
-/etc/openvpn/easy-rsa/build-key --batch client1
+cd /etc/openvpn/easy-rsa
+./build-key --batch client1
 
 # create ovpn config file from template
 cp /usr/share/doc/openvpn/examples/sample-config-files/client.conf /etc/openvpn/easy-rsa/keys/client1.ovpn
