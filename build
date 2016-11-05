@@ -13,7 +13,7 @@ dist=$(lsb_release -si)
 ver=$(lsb_release -sr | cut -d. -f1)  
 
 # check if Ubuntu 14+ or Debian 8+
-if ([ $dist == 'Ubuntu' ] && ( [ $ver == '14' ] || [ $ver == '15' ] )) || ( [ $dist == 'Debian' ] && [ $ver == '8' ] )
+if ([ $dist == 'Ubuntu' ] && ( [ $ver == '14' ] || [ $ver == '15' ] || [ $ver == '16' ] )) || ( [ $dist == 'Debian' ] && [ $ver == '8' ] )
 then
   # detected compatible operating system
   echo '===================================================='
