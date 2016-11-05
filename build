@@ -39,8 +39,11 @@ then
   sed -i -e 's/;push "dhcp-option DNS 208.67.222.222"/push "dhcp-option DNS 208.67.222.222"/g' /etc/openvpn/server.conf
   sed -i -e 's/;push "dhcp-option DNS 208.67.220.220"/push "dhcp-option DNS 208.67.220.220"/g' /etc/openvpn/server.conf
 
-  # uncomment ;user nobody
-  # uncomment ;group nogroup
+  # uncomment ;duplicate-cn
+  sed -i -e 's/;duplicate-cn/duplicate-cn/g' /etc/openvpn/server.conf
+  sed -i -e 's/;group nogroup/group nogroup/g' /etc/openvpn/server.conf
+  
+  # add
   sed -i -e 's/;user nobody/user nobody/g' /etc/openvpn/server.conf
   sed -i -e 's/;group nogroup/group nogroup/g' /etc/openvpn/server.conf
 
