@@ -1,8 +1,10 @@
+Forked from Miles Gratz's (original repo)[https://github.com/milesgratz/openvpn-droplet].
+
 # OpenVPN-droplet
 Script to build and configure OpenVPN on a DigitalOcean "Droplet"
 
 # Installation Instructions
-After launching a fresh DigitalOcean "Droplet" running Ubuntu 14.04, Ubuntu 15.10, or Debian 8.3:
+After launching a fresh DigitalOcean "Droplet" running Ubuntu 14.04, Ubuntu 15.10, Ubuntu 16.04 or Debian 8.3:
 
         wget https://git.io/vX8RH -O openvpn-droplet
         bash openvpn-droplet
