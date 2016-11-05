@@ -1,4 +1,4 @@
-Forked from Miles Gratz's (original repo)[https://github.com/milesgratz/openvpn-droplet].
+Forked from Miles Gratz's [original repo](https://github.com/milesgratz/openvpn-droplet).
 
 # OpenVPN-droplet
 Script to build and configure OpenVPN on a DigitalOcean "Droplet"
