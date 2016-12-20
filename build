@@ -36,8 +36,8 @@ then
 
   # uncomment ;push "dhcp-option DNS 208.67.222.222" 
   # uncomment ;push "dhcp-option DNS 208.67.220.220"
-  sed -i -e 's/;push "dhcp-option DNS 208.67.222.222"/push "dhcp-option DNS 208.67.222.222"/g' /etc/openvpn/server.conf
-  sed -i -e 's/;push "dhcp-option DNS 208.67.220.220"/push "dhcp-option DNS 208.67.220.220"/g' /etc/openvpn/server.conf
+  sed -i -e 's/;push "dhcp-option DNS 208.67.222.222"/push "dhcp-option DNS 8.8.8.8"/g' /etc/openvpn/server.conf
+  sed -i -e 's/;push "dhcp-option DNS 208.67.220.220"/push "dhcp-option DNS 8.8.4.4"\npush "block-outside-dns"/g' /etc/openvpn/server.conf
 
   # uncomment ;duplicate-cn
   sed -i -e 's/;duplicate-cn/duplicate-cn/g' /etc/openvpn/server.conf
